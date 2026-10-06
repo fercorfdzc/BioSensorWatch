@@ -11,13 +11,9 @@ class SamsungHealthManager(context: Context) : SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     
-    // Lista de sensores que intentaremos activar
     private var heartRateSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
     private var accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    // Sensores de Salud (pueden no estar en todos los modelos vía Android estándar)
-    private var spo2Sensor: Sensor? = sensorManager.getDefaultSensor(69662) // Código común para SpO2 nativo
-    private var tempSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE) ?: sensorManager.getDefaultSensor(65538)
-
+    
     @Volatile var latestHeartRate: Int = 0
     @Volatile var latestRRInterval: Int = 0 
     @Volatile var latestSpO2: Int = 0
@@ -30,12 +26,35 @@ class SamsungHealthManager(context: Context) : SensorEventListener {
     private var lastHeartBeatTime: Long = 0
 
     fun connect() {
-        Log.d("SamsungHealthManager", "Iniciando captura de 5 parámetros")
+        Log.d("Sensors", "--- ESCANEANDO TODOS LOS SENSORES DISPONIBLES ---")
+        val deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
         
-        heartRateSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        spo2Sensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        tempSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        deviceSensors.forEach { sensor ->
+            val name = sensor.name.lowercase()
+            val type = sensor.type
+            
+            // Log para debug: asi sabremos que sensores TIENE tu reloj realmente
+            if (name.contains("oxygen") || name.contains("spo2") || name.contains("temp") || name.contains("heart")) {
+                Log.d("Sensors", "Sensor detectado: $name | Tipo: $type")
+            }
+
+            // Suscribirse a HR
+            if (type == Sensor.TYPE_HEART_RATE) {
+                sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            // Suscribirse a Acelerometro
+            if (type == Sensor.TYPE_ACCELEROMETER) {
+                sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            // Suscribirse a cualquier cosa que parezca SpO2
+            if (name.contains("spo2") || name.contains("oxygen") || type == 69662 || type == 65542) {
+                sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            // Suscribirse a cualquier cosa que parezca Temperatura
+            if (name.contains("temp") || type == 65538 || type == 65578 || type == Sensor.TYPE_AMBIENT_TEMPERATURE) {
+                sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+        }
     }
 
     fun disconnect() {
@@ -43,11 +62,13 @@ class SamsungHealthManager(context: Context) : SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        when (event.sensor.type) {
-            Sensor.TYPE_HEART_RATE -> {
+        val name = event.sensor.name.lowercase()
+        val type = event.sensor.type
+
+        when {
+            type == Sensor.TYPE_HEART_RATE -> {
                 if (event.values[0] > 0) {
                     latestHeartRate = event.values[0].toInt()
-                    // Cálculo aproximado del RR Interval en ms
                     val currentTime = System.currentTimeMillis()
                     if (lastHeartBeatTime != 0L) {
                         latestRRInterval = (currentTime - lastHeartBeatTime).toInt()
@@ -55,14 +76,23 @@ class SamsungHealthManager(context: Context) : SensorEventListener {
                     lastHeartBeatTime = currentTime
                 }
             }
-            Sensor.TYPE_ACCELEROMETER -> {
+            type == Sensor.TYPE_ACCELEROMETER -> {
                 accX = (event.values[0] * 100).toInt()
                 accY = (event.values[1] * 100).toInt()
                 accZ = (event.values[2] * 100).toInt()
             }
-            // Intento de captura de SpO2 y Temperatura si el hardware lo permite vía Android
-            69662 -> { latestSpO2 = event.values[0].toInt() }
-            Sensor.TYPE_AMBIENT_TEMPERATURE, 65538 -> { latestSkinTemp = event.values[0] }
+            name.contains("spo2") || name.contains("oxygen") || type == 69662 || type == 65542 -> {
+                if (event.values[0] > 0) {
+                    latestSpO2 = event.values[0].toInt()
+                    Log.d("Sensors", "DATO RECIBIDO -> SpO2: $latestSpO2")
+                }
+            }
+            name.contains("temp") || type == 65538 || type == 65578 || type == Sensor.TYPE_AMBIENT_TEMPERATURE -> {
+                if (event.values[0] > 0) {
+                    latestSkinTemp = event.values[0]
+                    Log.d("Sensors", "DATO RECIBIDO -> Temp: $latestSkinTemp")
+                }
+            }
         }
     }
 

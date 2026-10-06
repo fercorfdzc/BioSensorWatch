@@ -1,76 +1,99 @@
-# ⌚ BioSensorWatch: Asistente al Volante Inteligente
+# BioSensorWatch: Plataforma de Extraccion de Datos Biometricos
 
-**BioSensorWatch** es un sistema de monitoreo biométrico en tiempo real que utiliza un reloj con Wear OS para detectar estados de fatiga, estrés o relajación en conductores, con el fin de prevenir accidentes viales.
+BioSensorWatch es una infraestructura de ingenieria diseñada para capturar, centralizar y exponer datos de salud y movimiento en tiempo real desde dispositivos Wear OS (Samsung Galaxy Watch).
 
----
-
-## 🚀 Estructura del Proyecto
-
-1.  **Mobile App (Wear OS):** Aplicación en Kotlin que captura datos de sensores (Frecuencia cardíaca, Acelerómetro, SpO2).
-2.  **Backend (FastAPI):** Servidor en Python que recibe los datos y los guarda en un dataset (CSV).
-3.  **Inteligencia Artificial:** Modelo de Machine Learning (Random Forest) que clasifica el estado del usuario en tiempo real.
+### Finalidad del Proyecto
+El sistema funciona como una pasarela (gateway) de datos abierta. Su unico objetivo es extraer informacion vital directamente del hardware del reloj y ponerla a disposicion de investigadores, desarrolladores o sistemas externos de forma estructurada (CSV y API REST), eliminando las barreras de los ecosistemas de salud cerrados.
 
 ---
 
-## 🛠️ Configuración Inicial (Paso a Paso)
+## Arquitectura del Sistema
 
-### 1. Preparar la Computadora (Servidor)
-*   Instala las librerías necesarias:
-    ```bash
-    cd backend
-    pip install -r requirements.txt
-    ```
-*   Averigua tu IP local:
-    *   Abre la terminal y escribe `ipconfig`.
-    *   Busca **Dirección IPv4** (Ejemplo: `192.168.101.6`).
-
-### 2. Configurar el Reloj
-*   Abre el archivo `RetrofitClient.kt` en Android Studio.
-*   Cambia la `BASE_URL` por la IP de tu PC:
-    ```kotlin
-    private const val BASE_URL = "http://TU_IP_AQUI:8000/"
-    ```
-*   **IMPORTANTE:** Asegúrate de que el Reloj y la PC estén conectados a la **Misma Red Wi-Fi**.
-
-### 3. Vincular y Conectar
-*   En el reloj, abre la app y otorga los permisos de **Sensores**, **Actividad Física** y **Notificaciones**.
-*   Si el reloj no conecta, desactiva el **Bluetooth** del reloj para forzar la conexión por Wi-Fi directo.
+1. Wear OS Data Collector (Reloj): Aplicacion desarrollada en Kotlin que extrae datos crudos de los sensores y mantiene una transmision constante mediante un servicio de primer plano (Foreground Service).
+2. Central Data API (Computadora): Servidor receptor en Python que organiza la informacion en un dataset local y expone los datos para consumo externo inmediato.
 
 ---
 
-## 📈 Cómo usar el sistema
+## Datos Extraidos (Diccionario de Datos)
 
-### Paso 1: Iniciar el Recolector
-En tu PC, corre el servidor:
-```bash
-python main.py
+El sistema captura los siguientes parametros del hardware del reloj cada segundo:
+
+| Campo | Descripcion | Unidad |
+| :--- | :--- | :--- |
+| heart_rate | Frecuencia cardiaca (Pulso) | BPM |
+| rr_interval | Tiempo exacto entre latidos | ms |
+| spo2 | Saturacion de oxigeno en sangre | % |
+| skin_temperature | Temperatura detectada en la piel | C |
+| acc_x | Movimiento horizontal (Acelerometro) | m/s2 |
+| acc_y | Movimiento vertical (Acelerometro) | m/s2 |
+| acc_z | Movimiento de profundidad (Acelerometro) | m/s2 |
+| timestamp | Fecha y hora precisa de la captura | ISO 8601 |
+
+---
+
+## Interaccion con la API (FastAPI)
+
+Cualquier sistema externo puede comunicarse con los datos mediante peticiones HTTP. El servidor corre por defecto en el puerto 8000.
+
+### 1. Obtener el ultimo dato en tiempo real
+Para integrar los datos en otro programa (Python, JavaScript, etc.) o verlos en un navegador, se debe realizar una peticion GET al siguiente endpoint:
+
+**URL:** `http://LA_IP_DE_TU_PC:8000/latest`
+
+**Formato de respuesta (JSON):**
+```json
+{
+  "heart_rate": 75,
+  "rr_interval": 800,
+  "spo2": 98,
+  "skin_temperature": 34.5,
+  "acc_x": 120,
+  "acc_y": -45,
+  "acc_z": 980,
+  "timestamp": "2026-10-05T20:05:30.646"
+}
 ```
 
-### Paso 2: Iniciar la captura en el Reloj
-Presiona el botón **INICIAR** en la app del reloj. Verás que en la terminal de la PC empiezan a aparecer los latidos recibidos.
-
-### Paso 3: Entrenar la IA
-Para que el sistema aprenda, graba un minuto en estado "Normal" y otro minuto simulando "Fatiga" (cambiando la etiqueta en `main.py`). Luego ejecuta:
-```bash
-python entrenar_modelo.py
-```
-
-### Paso 4: Clasificación en Tiempo Real
-Con el servidor y el reloj encendidos, corre el clasificador:
-```bash
-python api_app.py
-```
-¡El sistema te dirá si estás **RELAJADO** o en **FATIGA** al instante!
+### 2. Verificar estado del servidor
+**URL:** `http://LA_IP_DE_TU_PC:8000/`
+Devuelve un mensaje de confirmacion si el receptor esta encendido y listo para trabajar.
 
 ---
 
-## 🌍 Acceso Global (Opcional)
-Si quieres que alguien fuera de tu casa vea los datos, usa **ngrok**:
-1. Descarga ngrok.
-2. Ejecuta: `ngrok http 8000`.
-3. Copia la URL de ngrok en el `RetrofitClient.kt` del reloj.
+## Guia de Configuracion Paso a Paso (Computadora)
+
+### 1. Preparacion del Entorno
+* Asegurate de tener Python 3.10 o superior instalado en tu PC.
+* Instala las librerias necesarias abriendo una terminal en la carpeta backend e instalando los requisitos:
+  `pip install -r requirements.txt`
+
+### 2. Identificacion en la Red
+Para que el reloj sepa a donde enviar los datos, necesitas conocer la direccion IP de tu computadora:
+1. Pulsa la tecla Windows + R, escribe cmd y pulsa Enter.
+2. Escribe el comando ipconfig y busca la linea que dice Direccion IPv4.
+3. Anotala para el siguiente paso.
+
+### 3. Encendido del Receptor
+En la terminal dentro de la carpeta backend, ejecuta:
+`python main.py`
+No cierres esta ventana durante la recoleccion.
 
 ---
 
-**Autor:** Jonathan - Proyecto Escolar "Asistente al Volante"
-**Tecnologías:** Android (Kotlin), Compose, FastAPI, Scikit-Learn, Pandas.
+## Guia de Configuracion Paso a Paso (Reloj)
+
+### 1. Vincular con la IP de la PC
+1. En Android Studio, abre el archivo: `app/src/main/java/com/jonathan/biosensorwatch/Config.kt`
+2. Modifica la variable SERVER_IP con tu numero de IP:
+   `private const val SERVER_IP = "192.168.X.X"`
+3. Pulsa el boton Run (triangulo verde) para instalar la app en el reloj.
+
+### 2. Conexion de Red
+* El reloj y la PC deben estar en el mismo Wi-Fi.
+* Apaga el Bluetooth del reloj para evitar interferencias con la red local.
+
+---
+
+Desarrollado por: Jonathan
+Proposito: Herramienta cientifica de extraccion de datos biometricos Wear OS.
+Tecnologias: Kotlin, Wear OS, FastAPI, Pandas, REST API.

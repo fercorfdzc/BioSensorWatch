@@ -1,27 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permisos de Sensores y Salud -->
+    <!-- Permisos de Salud y Sensores -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.BODY_SENSORS_BACKGROUND" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
-    <!-- Permiso para Notificaciones (Requerido en Android 13+ para servicios) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Permisos para el Servicio de Primer Plano -->
+    <!-- Permisos para el Servicio de Primer Plano (Necesarios para que funcione en segundo plano) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Permisos específicos de Samsung Health -->
-    <uses-permission android:name="com.samsung.android.health.permission.READ" />
-    <uses-permission android:name="com.samsung.android.health.permission.WRITE" />
-
+    <!-- Red e Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Features requeridas para que Wear OS habilite los permisos -->
     <uses-feature android:name="android.hardware.type.watch" />
-    <uses-feature android:name="android.hardware.sensor.heartrate" android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.heartrate" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" />
 
     <application
         android:allowBackup="true"
@@ -31,6 +28,7 @@
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
+        <!-- Samsung Health SDK - Esta línea es vital -->
         <meta-data
             android:name="com.samsung.android.health.permission.USAGE_PERMISSION"
             android:value="true" />
@@ -39,6 +37,7 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- Declaración del Servicio de Extracción -->
         <service
             android:name=".service.BiometricService"
             android:enabled="true"

@@ -26,6 +26,7 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.jonathan.biosensorwatch.Config
 import com.jonathan.biosensorwatch.presentation.theme.BioSensorWatchTheme
 import com.jonathan.biosensorwatch.service.BiometricService
 
@@ -37,6 +38,10 @@ class MainActivity : ComponentActivity() {
     ).apply {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Permiso vital para salud en segundo plano
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            add(Manifest.permission.BODY_SENSORS_BACKGROUND)
         }
     }.toTypedArray()
 
@@ -69,10 +74,6 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             permissionsGrantedState = permissions.values.all { it }
-            if (permissionsGrantedState) {
-                // Si se acaban de conceder, actualizamos el estado del servicio
-                isServiceRunning = isServiceRunning(BiometricService::class.java)
-            }
         }
 
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -103,16 +104,17 @@ class MainActivity : ComponentActivity() {
                             Text("INICIAR")
                         }
                     }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Host: ${Config.BASE_URL.removePrefix("http://").removeSuffix(":8000/")}", 
+                         color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                    
                 } else {
                     Text("FALTAN PERMISOS", color = Color.Red, style = MaterialTheme.typography.labelSmall)
-                    Text("Cuerpo y Actividad", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    Text("Debe elegir 'Permitir siempre'", color = Color.White, style = MaterialTheme.typography.labelSmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { launcher.launch(requiredPermissions) }) { 
                         Text("CONCEDER") 
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(onClick = { openAppSettings() }, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) { 
-                        Text("AJUSTES") 
                     }
                 }
             }
@@ -127,16 +129,6 @@ class MainActivity : ComponentActivity() {
             if (serviceClass.name == service.service.className) return true
         }
         return false
-    }
-
-    private fun openAppSettings() {
-        try {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (e: Exception) { Log.e("MainActivity", "Error", e) }
     }
 
     private fun checkAllPermissions(): Boolean {

@@ -25,33 +25,38 @@ class BiometricService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, "biometric_channel")
-            .setContentTitle("BioSensor Watch")
-            .setContentText("Recopilando datos en segundo plano...")
+            .setContentTitle("BioSensor Activo")
+            .setContentText("Enviando datos al servidor...")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
 
         startForeground(1, notification)
-        
         healthManager.connect()
-        startCollecting()
+        startDataStream()
         
         return START_STICKY
     }
 
-    private fun startCollecting() {
+    private fun startDataStream() {
         serviceScope.launch {
             while (isActive) {
-                val data = BiometricData(
-                    heartRate = healthManager.latestHeartRate,
-                    rrInterval = healthManager.latestRRInterval,
-                    spo2 = healthManager.latestSpO2,
-                    skinTemperature = healthManager.latestSkinTemp,
-                    accX = healthManager.accX, accY = healthManager.accY, accZ = healthManager.accZ,
-                    timestamp = LocalDateTime.now().format(formatter)
-                )
-                repository.sendData(data)
-                delay(1000)
+                try {
+                    val data = BiometricData(
+                        heartRate = healthManager.latestHeartRate,
+                        rrInterval = healthManager.latestRRInterval,
+                        spo2 = healthManager.latestSpO2,
+                        skinTemperature = healthManager.latestSkinTemp,
+                        accX = healthManager.accX, 
+                        accY = healthManager.accY, 
+                        accZ = healthManager.accZ,
+                        timestamp = LocalDateTime.now().format(formatter)
+                    )
+                    repository.sendData(data)
+                } catch (e: Exception) {
+                    // Ignorar errores de red temporales
+                }
+                delay(1000) // Captura cada segundo
             }
         }
     }
@@ -59,7 +64,7 @@ class BiometricService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             "biometric_channel", 
-            "Sensores Biométricos", 
+            "Servicio Biométrico",
             NotificationManager.IMPORTANCE_LOW
         )
         val manager = getSystemService(NotificationManager::class.java)
